@@ -2,30 +2,37 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
 """
-YOLOv8 分割推理脚本（仿照 v11 版本）。
+YOLO26 分割预测脚本。
 
 详细使用说明：
-1) 摄像头实时分割推理：
-   python segment/predict.py --weights yolov8n-seg.pt --source 0
-2) 图片/视频分割推理：
-   python segment/predict.py --weights yolov8n-seg.pt --source img.jpg
-   python segment/predict.py --weights yolov8n-seg.pt --source video.mp4
-3) 常用参数：
-   --retina-masks  使用高分辨率 mask
-   --overlap-mask  允许 mask 重叠
-   --conf-thres    置信度阈值
-   --iou-thres     NMS IoU 阈值
+1. 摄像头实时分割：
+   python ultralytics/models/yolo/26/segment/predict.py --weights yolo26n-seg.pt --source 0
+2. 单张图片分割：
+   python ultralytics/models/yolo/26/segment/predict.py --weights yolo26n-seg.pt --source img.jpg
+3. 视频分割：
+   python ultralytics/models/yolo/26/segment/predict.py --weights yolo26n-seg.pt --source video.mp4
+4. 文件夹或通配符分割：
+   python ultralytics/models/yolo/26/segment/predict.py --weights yolo26n-seg.pt --source path/to/images
+   python ultralytics/models/yolo/26/segment/predict.py --weights yolo26n-seg.pt --source "path/to/images/*.jpg"
+5. 高分辨率掩码输出：
+   python ultralytics/models/yolo/26/segment/predict.py --weights yolo26n-seg.pt --source img.jpg --retina-masks
+6. 常用参数：
+   --weights       分割模型权重路径
+   --source        输入源，支持图片、视频、文件夹、通配符、摄像头和网络流
+   --imgsz         推理尺寸，默认 640
+   --conf-thres    置信度阈值，默认 0.25
+   --retina-masks  使用高分辨率掩码
+   --save-txt      保存预测标签
 """
 
 import argparse
 import sys
 from pathlib import Path
 
-# Add the parent directory to the path so we can import ultralytics
 FILE = Path(__file__).resolve()
 ROOT = FILE.parents[5]  # repository root directory
 if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))  # add ROOT to PATH
+    sys.path.insert(0, str(ROOT))
 
 from ultralytics import YOLO
 from ultralytics.utils import LOGGER
@@ -34,7 +41,7 @@ from ultralytics.utils import LOGGER
 def parse_opt():
     """Parse command line arguments."""
     parser = argparse.ArgumentParser()
-    parser.add_argument("--weights", nargs="+", type=str, default="yolov8n-seg.pt", help="model path or triton URL")
+    parser.add_argument("--weights", nargs="+", type=str, default="yolo26n-seg.pt", help="model path or triton URL")
     parser.add_argument("--source", type=str, default="", help="file/dir/URL/glob/screen/0(webcam)")
     parser.add_argument("--data", type=str, default="", help="(optional) dataset.yaml path")
     parser.add_argument("--imgsz", "--img", "--img-size", nargs="+", type=int, default=[640], help="inference size h,w")
@@ -61,19 +68,17 @@ def parse_opt():
     parser.add_argument("--half", action="store_true", help="use FP16 half-precision inference")
     parser.add_argument("--dnn", action="store_true", help="use OpenCV DNN for ONNX inference")
     parser.add_argument("--vid-stride", type=int, default=1, help="video frame-rate stride")
-
-    # YOLOv8 segmentation specific arguments
     parser.add_argument("--retina-masks", action="store_true", help="use high-resolution masks")
     parser.add_argument("--overlap-mask", action="store_true", help="masks should overlap during prediction")
 
     opt = parser.parse_args()
-    opt.imgsz *= 2 if len(opt.imgsz) == 1 else 1  # expand
+    opt.imgsz *= 2 if len(opt.imgsz) == 1 else 1
     return opt
 
 
 def main(opt):
-    """Main prediction function."""
-    LOGGER.info(f"Starting YOLOv8 segmentation prediction with arguments: {opt}")
+    """Run YOLO26 segmentation prediction."""
+    LOGGER.info(f"Starting YOLO26 segmentation prediction with arguments: {opt}")
 
     model = YOLO(opt.weights[0])
     LOGGER.info(f"Loaded segmentation model: {opt.weights[0]}")

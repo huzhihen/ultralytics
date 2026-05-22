@@ -2,21 +2,22 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
 """
-YOLOv8 模型导出脚本（默认导出 ONNX，支持 detect/segment/pose 等任务）。
+YOLO26 模型导出脚本，默认导出 ONNX，也支持 engine、torchscript、openvino 等 Ultralytics 支持的格式。
 
 详细使用说明：
-1) 导出官方检测模型到 ONNX：
-   python ultralytics/models/yolo/v8/export.py --weights yolov8n.pt --format onnx --imgsz 640
-2) 导出你自己的模型到 ONNX：
-   python ultralytics/models/yolo/v8/export.py --weights /path/to/best.pt --format onnx --imgsz 640
-3) 导出动态尺寸 ONNX（推荐部署时使用）：
-   python ultralytics/models/yolo/v8/export.py --weights /path/to/best.pt --dynamic --simplify
-4) 指定设备和半精度：
-   python ultralytics/models/yolo/v8/export.py --weights /path/to/best.pt --device 0 --half
-5) 常用参数说明：
+1. 导出官方检测模型到 ONNX：
+   python ultralytics/models/yolo/26/export.py --weights yolo26n.pt --format onnx --imgsz 640
+2. 导出自定义训练权重：
+   python ultralytics/models/yolo/26/export.py --weights runs/train/exp/weights/best.pt --format onnx --imgsz 640
+3. 导出动态尺寸 ONNX：
+   python ultralytics/models/yolo/26/export.py --weights yolo26n.pt --format onnx --dynamic --simplify
+4. 导出 TensorRT engine：
+   python ultralytics/models/yolo/26/export.py --weights yolo26n.pt --format engine --device 0 --half
+5. 常用参数：
    --weights   模型权重路径（.pt）
-   --format    导出格式，默认 onnx（也支持 engine/torchscript 等）
+   --format    导出格式，默认 onnx
    --imgsz     导出输入尺寸，默认 640
+   --batch     导出批大小，默认 1
    --dynamic   是否导出动态输入维度
    --simplify  是否简化 ONNX 图
    --opset     ONNX opset 版本，默认 12
@@ -38,7 +39,7 @@ from ultralytics.utils import LOGGER
 def parse_opt():
     """Parse command line arguments."""
     parser = argparse.ArgumentParser()
-    parser.add_argument("--weights", type=str, default="yolov8n.pt", help="model weights path (.pt)")
+    parser.add_argument("--weights", type=str, default="yolo26n.pt", help="model weights path (.pt)")
     parser.add_argument("--format", type=str, default="onnx", help="export format, e.g. onnx, engine, torchscript")
     parser.add_argument("--imgsz", "--img", "--img-size", type=int, default=640, help="image size (pixels)")
     parser.add_argument("--batch", type=int, default=1, help="batch size")
@@ -55,8 +56,8 @@ def parse_opt():
 
 
 def main(opt):
-    """Main export function."""
-    LOGGER.info(f"Starting YOLOv8 export with arguments: {opt}")
+    """Run YOLO26 model export."""
+    LOGGER.info(f"Starting YOLO26 export with arguments: {opt}")
 
     model = YOLO(opt.weights)
     LOGGER.info(f"Loaded model: {opt.weights}")

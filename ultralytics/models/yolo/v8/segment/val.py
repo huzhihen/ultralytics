@@ -22,9 +22,9 @@ from pathlib import Path
 
 # Add the parent directory to the path so we can import ultralytics
 FILE = Path(__file__).resolve()
-ROOT = FILE.parents[4]  # ultralytics root directory
+ROOT = FILE.parents[5]  # repository root directory
 if str(ROOT) not in sys.path:
-    sys.path.append(str(ROOT))  # add ROOT to PATH
+    sys.path.insert(0, str(ROOT))  # add ROOT to PATH
 
 from ultralytics import YOLO
 from ultralytics.utils import LOGGER
@@ -35,7 +35,7 @@ def parse_opt():
     parser = argparse.ArgumentParser()
     parser.add_argument("--weights", nargs="+", type=str, default="yolov8n-seg.pt", help="model.pt path(s)")
     parser.add_argument("--data", type=str, default="coco128-seg.yaml", help="dataset.yaml path")
-    parser.add_argument("--batch-size", type=int, default=32, help="batch size")
+    parser.add_argument("--batch-size", "--batch", type=int, default=32, help="batch size")
     parser.add_argument("--imgsz", "--img", "--img-size", type=int, default=640, help="inference size (pixels)")
     parser.add_argument("--conf-thres", type=float, default=0.001, help="confidence threshold")
     parser.add_argument("--iou-thres", type=float, default=0.6, help="NMS IoU threshold")

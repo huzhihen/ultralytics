@@ -2,40 +2,45 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
 """
-YOLOv8 分割训练脚本（仿照 v11 版本）。
+YOLO26 分割训练脚本。
 
 详细使用说明：
-1) 基础训练（使用预训练权重）：
-   python segment/train.py --data coco-seg.yaml --weights yolov8n-seg.pt --epochs 100 --batch-size 16 --imgsz 640
-2) 从模型配置文件开始训练：
-   python segment/train.py --data coco-seg.yaml --cfg ultralytics/cfg/models/v8/yolov8-seg.yaml --epochs 100
-3) 指定显卡与输出目录：
-   python segment/train.py --data custom-seg.yaml --weights yolov8s-seg.pt --device 0 --project runs/train-seg --name exp_v8_seg
-4) 断点续训：
-   python segment/train.py --resume
-5) 常用参数：
-   --data        分割数据集配置文件（必填）
-   --weights     预训练权重路径（与 --cfg 二选一）
-   --cfg         模型结构配置文件（与 --weights 二选一）
-   --epochs      训练轮数
-   --batch-size  批大小
-   --imgsz       输入图像尺寸
-   --overlap-mask 训练时是否允许 mask 重叠
-   --mask-ratio   mask 下采样比例
+1. 使用官方预训练分割权重训练：
+   python ultralytics/models/yolo/26/segment/train.py --weights yolo26n-seg.pt --data coco128-seg.yaml --epochs 100
+2. 使用分割模型配置从头训练：
+   python ultralytics/models/yolo/26/segment/train.py --cfg ultralytics/cfg/models/26/yolo26-seg.yaml \
+       --data coco128-seg.yaml --img 640
+3. 从已有分割权重继续训练：
+   python ultralytics/models/yolo/26/segment/train.py --weights runs/train-seg/exp/weights/best.pt \
+       --data coco128-seg.yaml --resume
+4. 指定 GPU、批大小和输出目录：
+   python ultralytics/models/yolo/26/segment/train.py --weights yolo26n-seg.pt --data coco128-seg.yaml \
+       --device 0 --batch-size 16 --project runs/train-seg --name yolo26_seg
+5. 常用参数：
+   --weights       初始分割权重路径，不传时默认使用 yolo26n-seg.pt
+   --cfg           分割模型 YAML 配置路径
+   --data          分割数据集 YAML 配置路径
+   --overlap-mask  训练时是否允许实例掩码重叠
+   --mask-ratio    掩码下采样比例，默认 4
+   --resume        恢复训练
 """
 
 import argparse
 import sys
 from pathlib import Path
 
-# Add the parent directory to the path so we can import ultralytics
 FILE = Path(__file__).resolve()
 ROOT = FILE.parents[5]  # repository root directory
 if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))  # add ROOT to PATH
+    sys.path.insert(0, str(ROOT))
 
 from ultralytics import YOLO
 from ultralytics.utils import LOGGER
+
+
+def resolve_project(project: str) -> str:
+    """Resolve relative project paths from the current working directory."""
+    return str(Path(project).resolve()) if project and not Path(project).is_absolute() else project
 
 
 def parse_opt():
@@ -52,9 +57,7 @@ def parse_opt():
     parser.add_argument("--resume", nargs="?", const=True, default=False, help="resume from last checkpoint")
     parser.add_argument("--nosave", action="store_true", help="only save final checkpoint")
     parser.add_argument("--noval", action="store_true", help="only validate final epoch")
-    parser.add_argument("--noautoanchor", action="store_true", help="disable autoanchor check")
     parser.add_argument("--noplots", action="store_true", help="save no plot files")
-    parser.add_argument("--bucket", type=str, default="", help="gsutil bucket")
     parser.add_argument("--cache", type=str, nargs="?", const="ram", help="--cache images for faster training (ram/disk)")
     parser.add_argument("--device", default="", help="cuda device, i.e. 0 or 0,1,2,3 or cpu")
     parser.add_argument("--multi-scale", action="store_true", help="vary img-size +/- 50%%")
@@ -76,32 +79,28 @@ def parse_opt():
     parser.add_argument("--upload_dataset", nargs="?", const=True, default=False, help='Upload data, "val" option')
     parser.add_argument("--bbox_interval", type=int, default=-1, help="Set bounding-box eval interval")
     parser.add_argument("--artifact_alias", type=str, default="latest", help="version of dataset artifact to use")
-
-    # YOLOv8 segmentation specific arguments
     parser.add_argument("--task", type=str, default="segment", help="task type")
     parser.add_argument("--overlap-mask", action="store_true", help="masks should overlap during training")
     parser.add_argument("--mask-ratio", type=int, default=4, help="mask downsample ratio")
-
     return parser.parse_args()
 
 
 def main(opt):
-    """Main training function."""
-    LOGGER.info(f"Starting YOLOv8 segmentation training with arguments: {opt}")
+    """Run YOLO26 segmentation training."""
+    LOGGER.info(f"Starting YOLO26 segmentation training with arguments: {opt}")
 
-    # Initialize model
-    if opt.cfg and opt.weights:
-        model = YOLO(opt.cfg).load(opt.weights)
-        LOGGER.info(f"Created segmentation model from config {opt.cfg} and loaded weights: {opt.weights}")
-    elif opt.cfg:
+    if opt.cfg:
         model = YOLO(opt.cfg)
         LOGGER.info(f"Created new segmentation model from config: {opt.cfg}")
+        if opt.weights:
+            model.load(opt.weights)
+            LOGGER.info(f"Loaded initial weights: {opt.weights}")
     elif opt.weights:
         model = YOLO(opt.weights)
         LOGGER.info(f"Loaded pretrained segmentation model: {opt.weights}")
     else:
-        model = YOLO("yolov8n-seg.pt")
-        LOGGER.info("Using default YOLOv8n-seg model")
+        model = YOLO("yolo26n-seg.pt")
+        LOGGER.info("Using default YOLO26n-seg model")
 
     train_args = {
         "data": opt.data,
@@ -110,7 +109,7 @@ def main(opt):
         "imgsz": opt.imgsz,
         "device": opt.device,
         "workers": opt.workers,
-        "project": opt.project,
+        "project": resolve_project(opt.project),
         "name": opt.name,
         "exist_ok": opt.exist_ok,
         "pretrained": True,
@@ -139,7 +138,7 @@ def main(opt):
         "overlap_mask": opt.overlap_mask,
         "mask_ratio": opt.mask_ratio,
         "dropout": 0.0,
-        "val": True,
+        "val": not opt.noval,
         "plots": not opt.noplots,
         "save": not opt.nosave,
         "save_period": opt.save_period,

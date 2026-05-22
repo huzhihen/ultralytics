@@ -27,9 +27,9 @@ from pathlib import Path
 
 # Add the parent directory to the path so we can import ultralytics
 FILE = Path(__file__).resolve()
-ROOT = FILE.parents[3]  # ultralytics root directory
+ROOT = FILE.parents[4]  # repository root directory
 if str(ROOT) not in sys.path:
-    sys.path.append(str(ROOT))  # add ROOT to PATH
+    sys.path.insert(0, str(ROOT))  # add ROOT to PATH
 
 from ultralytics import YOLO
 from ultralytics.utils import LOGGER

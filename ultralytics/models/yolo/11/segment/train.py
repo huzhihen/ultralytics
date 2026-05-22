@@ -2,11 +2,11 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
 """
-Train a YOLOv11 detection model on a custom dataset.
+Train a YOLOv11 segmentation model on a custom dataset.
 
 Usage:
-    $ python train.py --img 640 --batch 16 --epochs 100 --data coco.yaml --cfg models/yolo11.yaml
-    $ python train.py --img 640 --batch 16 --epochs 100 --data coco.yaml --weights yolov11n.pt
+    $ python segment/train.py --img 640 --batch 16 --epochs 100 --data coco-seg.yaml --cfg models/yolo11-seg.yaml
+    $ python segment/train.py --img 640 --batch 16 --epochs 100 --data coco-seg.yaml --weights yolov11n-seg.pt
 """
 
 import argparse
@@ -16,9 +16,9 @@ from pathlib import Path
 
 # Add the parent directory to the path so we can import ultralytics
 FILE = Path(__file__).resolve()
-ROOT = FILE.parents[3]  # ultralytics root directory
+ROOT = FILE.parents[5]  # repository root directory
 if str(ROOT) not in sys.path:
-    sys.path.append(str(ROOT))  # add ROOT to PATH
+    sys.path.insert(0, str(ROOT))  # add ROOT to PATH
 
 from ultralytics import YOLO
 from ultralytics.utils import LOGGER
@@ -32,7 +32,7 @@ def parse_opt():
     parser.add_argument('--data', type=str, default='', help='dataset.yaml path')
     parser.add_argument('--hyp', type=str, default='', help='hyperparameters path')
     parser.add_argument('--epochs', type=int, default=100, help='number of epochs')
-    parser.add_argument('--batch-size', type=int, default=16, help='total batch size for all GPUs')
+    parser.add_argument('--batch-size', '--batch', type=int, default=16, help='total batch size for all GPUs')
     parser.add_argument('--imgsz', '--img', '--img-size', type=int, default=640, help='train, val image size (pixels)')
     parser.add_argument('--rect', action='store_true', help='rectangular training')
     parser.add_argument('--resume', nargs='?', const=True, default=False, help='resume from last checkpoint')
@@ -42,14 +42,13 @@ def parse_opt():
     parser.add_argument('--noplots', action='store_true', help='save no plot files')
     parser.add_argument('--bucket', type=str, default='', help='gsutil bucket')
     parser.add_argument('--cache', type=str, nargs='?', const='ram', help='--cache images for faster training (ram/disk)')
-    parser.add_argument('--image-weights', action='store_true', help='use weighted image selection for training')
     parser.add_argument('--device', default='', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
     parser.add_argument('--multi-scale', action='store_true', help='vary img-size +/- 50%%')
     parser.add_argument('--single-cls', action='store_true', help='train multi-class data as single-class')
     parser.add_argument('--optimizer', type=str, choices=['SGD', 'Adam', 'AdamW'], default='SGD', help='optimizer')
     parser.add_argument('--sync-bn', action='store_true', help='use SyncBatchNorm, only available in DDP mode')
     parser.add_argument('--workers', type=int, default=8, help='max dataloader workers (per RANK in DDP mode)')
-    parser.add_argument('--project', default='runs/train', help='save to project/name')
+    parser.add_argument('--project', default='runs/train-seg', help='save to project/name')
     parser.add_argument('--name', default='exp', help='save to project/name')
     parser.add_argument('--exist-ok', action='store_true', help='existing project/name ok, do not increment')
     parser.add_argument('--quad', action='store_true', help='quad dataloader')
@@ -64,8 +63,10 @@ def parse_opt():
     parser.add_argument('--bbox_interval', type=int, default=-1, help='Set bounding-box eval interval')
     parser.add_argument('--artifact_alias', type=str, default='latest', help='version of dataset artifact to use')
     
-    # YOLOv11 specific arguments
-    parser.add_argument('--task', type=str, default='detect', choices=['detect', 'segment'], help='task type')
+    # YOLOv11 segmentation specific arguments
+    parser.add_argument('--task', type=str, default='segment', help='task type')
+    parser.add_argument('--overlap-mask', action='store_true', help='masks should overlap during training')
+    parser.add_argument('--mask-ratio', type=int, default=4, help='mask downsample ratio')
     
     opt = parser.parse_args()
     return opt
@@ -73,21 +74,24 @@ def parse_opt():
 
 def main(opt):
     """Main training function."""
-    LOGGER.info(f"Starting YOLOv11 training with arguments: {opt}")
+    LOGGER.info(f"Starting YOLOv11 segmentation training with arguments: {opt}")
     
     # Initialize model
     if opt.cfg:
         # Create model from scratch
         model = YOLO(opt.cfg)
-        LOGGER.info(f"Created new model from config: {opt.cfg}")
+        LOGGER.info(f"Created new segmentation model from config: {opt.cfg}")
+        if opt.weights:
+            model.load(opt.weights)
+            LOGGER.info(f"Loaded initial weights: {opt.weights}")
     elif opt.weights:
         # Load pretrained model
         model = YOLO(opt.weights)
-        LOGGER.info(f"Loaded pretrained model: {opt.weights}")
+        LOGGER.info(f"Loaded pretrained segmentation model: {opt.weights}")
     else:
-        # Default to YOLOv11n
-        model = YOLO('yolo11n.pt')
-        LOGGER.info("Using default YOLOv11n model")
+        # Default to YOLOv11n-seg
+        model = YOLO('yolo11n-seg.pt')
+        LOGGER.info("Using default YOLOv11n-seg model")
     
     # Prepare training arguments
     train_args = {
@@ -106,7 +110,6 @@ def main(opt):
         'seed': 0,
         'deterministic': True,
         'single_cls': opt.single_cls,
-        'image_weights': opt.image_weights,
         'rect': opt.rect,
         'cos_lr': opt.cos_lr,
         'close_mosaic': 10,
@@ -122,11 +125,10 @@ def main(opt):
         'box': 7.5,
         'cls': 0.5,
         'dfl': 1.5,
-        'fl_gamma': 0.0,
         'label_smoothing': opt.label_smoothing,
         'nbs': 64,
-        'overlap_mask': True,
-        'mask_ratio': 4,
+        'overlap_mask': opt.overlap_mask,
+        'mask_ratio': opt.mask_ratio,
         'dropout': 0.0,
         'val': True,
         'plots': not opt.noplots,
@@ -143,10 +145,10 @@ def main(opt):
     # Start training
     try:
         results = model.train(**train_args)
-        LOGGER.info(f"Training completed successfully. Results saved to {model.trainer.save_dir}")
+        LOGGER.info(f"Segmentation training completed successfully. Results saved to {model.trainer.save_dir}")
         return results
     except Exception as e:
-        LOGGER.error(f"Training failed with error: {e}")
+        LOGGER.error(f"Segmentation training failed with error: {e}")
         raise
 
 
