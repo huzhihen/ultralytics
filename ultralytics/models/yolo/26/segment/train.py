@@ -35,12 +35,8 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from ultralytics import YOLO
+from ultralytics.models.yolo._script_utils import resolve_project
 from ultralytics.utils import LOGGER
-
-
-def resolve_project(project: str) -> str:
-    """Resolve relative project paths from the current working directory."""
-    return str(Path(project).resolve()) if project and not Path(project).is_absolute() else project
 
 
 def parse_opt():

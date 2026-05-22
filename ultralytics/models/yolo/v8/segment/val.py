@@ -27,6 +27,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))  # add ROOT to PATH
 
 from ultralytics import YOLO
+from ultralytics.models.yolo._script_utils import resolve_project
 from ultralytics.utils import LOGGER
 
 
@@ -75,7 +76,7 @@ def main(opt):
         "imgsz": opt.imgsz,
         "device": opt.device,
         "workers": opt.workers,
-        "project": opt.project,
+        "project": resolve_project(opt.project),
         "name": opt.name,
         "exist_ok": opt.exist_ok,
         "verbose": opt.verbose,
